@@ -3,7 +3,7 @@ using eebus;
 using eebus.Ship;
 using Microsoft.Extensions.Logging.Console;
 using System.Net;
-using System.Security.Cryptography.X509Certificates;
+
 
 var loggerFactory = LoggerFactory.Create(builder =>
 {
@@ -23,19 +23,14 @@ var loggerFactory = LoggerFactory.Create(builder =>
 var logger = loggerFactory.CreateLogger<Program>();
 
 var cert = CertGenerator.CreateSelfSignedCertificate(Dns.GetHostName());
-// cert is your X509Certificate2 instance
-var skiExtension = cert.Extensions
-    .OfType<X509SubjectKeyIdentifierExtension>()
-    .FirstOrDefault();
-
-string? ski = skiExtension?.SubjectKeyIdentifier;
+string? ski = cert.GetSubjectKeyIdentifier();
 
 var dsvc = new DeviceDiscoveryService(ski,12480);
 dsvc.Run();
 
 var tmp = new DeviceDiscovery(loggerFactory.CreateLogger<DeviceDiscovery>());
 var devices = await tmp.DiscoverAsync().ToListAsync();
-foreach(var dev in devices)
+foreach (var dev in devices)
     logger.LogInformation("device found: {Device}", dev);
 
 
@@ -45,7 +40,7 @@ while (true)
     {
         var websocket = new System.Net.WebSockets.ClientWebSocket();
 
-        ShipWebSocketClient client = new(loggerFactory.CreateLogger<ShipWebSocketClient>(), websocket, "wss://192.168.1.152:12480");
+        ShipWebSocketClient client = new(loggerFactory.CreateLogger<ShipWebSocketClient>(), websocket, "wss://192.168.1.152:12480", "1aa91a8f21869234ad5860f4fddadd4267fa4a0e");
         await client.ConnectAsync(cert, CancellationToken.None);
         await client.DataExchange(CancellationToken.None);
     }

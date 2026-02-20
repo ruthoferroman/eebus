@@ -19,39 +19,48 @@ internal class ShipWebSocketClient
     private static readonly TimeSpan _CmiTimeout = TimeSpan.FromSeconds(30);
     // maximum alowed are 240 seconds, according to the spec
     private static readonly TimeSpan _HelloTimeout = TimeSpan.FromSeconds(240);
-    private readonly ILogger<ShipWebSocketClient> logger;
-    private readonly ClientWebSocket webSocket;
-    private readonly string uri;
 
-    public ShipWebSocketClient(ILogger<ShipWebSocketClient> logger, ClientWebSocket webSocket, string uri)
+    private readonly ILogger<ShipWebSocketClient> _logger;
+    private readonly ClientWebSocket _webSocket;
+    private readonly string _ski;
+    private readonly string _uri;
+
+    public ShipWebSocketClient(ILogger<ShipWebSocketClient> logger, ClientWebSocket webSocket, string uri, string ski)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(webSocket);
-        this.logger = logger;
-        this.webSocket = webSocket;
-        this.uri = uri;
+        this._logger = logger;
+        this._webSocket = webSocket;
+        this._ski = ski;
+        this._uri = uri;
         logger.BeginScope("{Uri}", uri);
     }
 
     public async Task ConnectAsync(X509Certificate2 localCert, CancellationToken cancellationToken)
     {
         // 1. Configure TLS (Mutual Auth)
-        webSocket.Options.ClientCertificates.Add(localCert);
+        _webSocket.Options.ClientCertificates.Add(localCert);
 
         // SHIP usually requires a specific sub-protocol: "ship"
-        webSocket.Options.AddSubProtocol("ship");
+        _webSocket.Options.AddSubProtocol("ship");
 
         // Remote certificate validation (Trust logic)
-        webSocket.Options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
+        _webSocket.Options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
         {
-            logger.LogInformation("RemoteCertificateValidationCallback");
+            string? ski = certificate.GetSubjectKeyIdentifier();
+            if (_ski.ToLower() != ski?.ToLower())
+            {
+                _logger.LogInformation("Not trusted {@ski}", ski);
+                return false;
+            }
+            _logger.LogInformation("RemoteCertificateValidationCallback {@ski}",ski);
             // TODO Here you would check the remote device's SKI against your "Trusted" list
             return true; // Simplified for this example
         };
 
   
-        logger.LogInformation("Connecting ...");
-        await webSocket.ConnectAsync(new Uri(uri), cancellationToken);
+        _logger.LogInformation("Connecting ...");
+        await _webSocket.ConnectAsync(new Uri(_uri), cancellationToken);
 
         // 1. init
         var initCts = new CancellationTokenSource(_CmiTimeout);
@@ -71,35 +80,35 @@ internal class ShipWebSocketClient
 
     public async Task DataExchange(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Starting Data Exchange ...");
-        while (webSocket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
+        _logger.LogInformation("Starting Data Exchange ...");
+        while (_webSocket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
         {
-            using var reader = await webSocket.ReceiveMessageAsync(cancellationToken);
+            using var reader = await _webSocket.ReceiveMessageAsync(cancellationToken);
             var msg = DataValueEncoder.Decode(reader, (int)reader.BaseStream.Length)
                 ?? throw new ShipException("Failed to decode SHIP Data message.");
 
             // TODO
-            logger.LogInformation("Received message: {@msg}", msg);
+            _logger.LogInformation("Received message: {@msg}", msg);
 
         }
     }
 
     private async Task ShipInitPhase(CancellationToken cancellationToken)
     {
-        await webSocket.SendMessageAsync((writer) =>
+        await _webSocket.SendMessageAsync((writer) =>
         {
             writer.Write((byte)ShipMessageType.Init);
             writer.Write((byte)ShipMessageValue.CmiHead);
         }, cancellationToken);
-        logger.LogInformation("Init Sent.");
+        _logger.LogInformation("Init Sent.");
 
-        using (var msg = await webSocket.ReceiveMessageAsync(cancellationToken))
+        using (var msg = await _webSocket.ReceiveMessageAsync(cancellationToken))
         {
             var initResponse = msg.ReadBytes(2);
             if ((initResponse[0] != (byte)ShipMessageType.Init) || (initResponse[1] != (byte)ShipMessageValue.CmiHead))
                 throw new ShipException("Expected init response message!");
 
-            logger.LogInformation("Received Init Response: {@response}", initResponse);
+            _logger.LogInformation("Received Init Response: {@response}", initResponse);
         }
     }
 
@@ -111,20 +120,20 @@ internal class ShipWebSocketClient
 
                new ConnectionHelloType(ConnectionHelloPhaseType.Ready, (uint)_HelloTimeout.TotalSeconds, null, null)
            );
-        await webSocket.SendMessageAsync(request.Encode, cancellationToken);
-        logger.LogInformation("--> Sent SHIP Hello {@req}", request);
+        await _webSocket.SendMessageAsync(request.Encode, cancellationToken);
+        _logger.LogInformation("--> Sent SHIP Hello {@req}", request);
 
 
         // wait for Hello response and handle phases
         while (!cancellationToken.IsCancellationRequested)
         {
-            using var msg = await webSocket.ReceiveMessageAsync(cancellationToken);
+            using var msg = await _webSocket.ReceiveMessageAsync(cancellationToken);
             var resp = SmeHelloValueEncoder.Decode(msg, (int)msg.BaseStream.Length)
                 ?? throw new ShipException("Failed to decode SHIP Hello message.");
             var helloResponse = resp.ConnectionHello
                 ?? throw new ShipException("SHIP Hello response doesn't contain ConnectionHello element.");
 
-            logger.LogInformation("<-- Received SHIP Hello {@resp}", resp);
+            _logger.LogInformation("<-- Received SHIP Hello {@resp}", resp);
 
             // validate phase and handle accordingly
             switch (helloResponse.Phase)
@@ -134,18 +143,18 @@ internal class ShipWebSocketClient
                 case ConnectionHelloPhaseType.Pending:
                     if (helloResponse.ProlongationRequest == true)
                     {
-                        logger.LogInformation("Received SHIP Hello Phase 'Pending' with Prolongation Request with waiting {Waiting}ms, will send new Hello.", helloResponse.Waiting);
+                        _logger.LogInformation("Received SHIP Hello Phase 'Pending' with Prolongation Request with waiting {Waiting}ms, will send new Hello.", helloResponse.Waiting);
                         // TODO Token
                         //cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
                         var prHelloMsg = new SmeHelloValue(
                            
                                new ConnectionHelloType(ConnectionHelloPhaseType.Pending, helloResponse.Waiting, null, null)
                            );
-                        await webSocket.SendMessageAsync(prHelloMsg.Encode, cancellationToken);
+                        await _webSocket.SendMessageAsync(prHelloMsg.Encode, cancellationToken);
                     }
                     else
                     {
-                        logger.LogInformation("Received SHIP Hello Phase 'Pending', waiting for {Waiting} ms.", helloResponse.Waiting);
+                        _logger.LogInformation("Received SHIP Hello Phase 'Pending', waiting for {Waiting} ms.", helloResponse.Waiting);
                         //await Task.Delay((int)(helloResponse.Waiting ?? 30000), cancellationToken);
                     }
                     break;
@@ -163,7 +172,7 @@ internal class ShipWebSocketClient
 
                new ConnectionHelloType(ConnectionHelloPhaseType.Aborted, null, null, null)
            );
-        await webSocket.SendMessageAsync(abortMsg.Encode, cancellationToken);
+        await _webSocket.SendMessageAsync(abortMsg.Encode, cancellationToken);
     }
 
     private async Task ShipHandshakePhase(CancellationToken cancellationToken)
@@ -172,11 +181,11 @@ internal class ShipWebSocketClient
         
         // send handshake message
         var request = new SmeProtocolHandshakeValue( new MessageProtocolHandshakeType(ProtocolHandshakeTypeType.AnnounceMax, locVersion, [MSG_FORMAT]) );
-        await webSocket.SendMessageAsync(request.Encode, cancellationToken);
-        logger.LogInformation("Handshake Sent {@msg}", request);
+        await _webSocket.SendMessageAsync(request.Encode, cancellationToken);
+        _logger.LogInformation("Handshake Sent {@msg}", request);
 
         // receive handshake response
-        using var response = await webSocket.ReceiveMessageAsync(cancellationToken);
+        using var response = await _webSocket.ReceiveMessageAsync(cancellationToken);
         // TODO Check for error message response
         var handshakeResponse = SmeProtocolHandshakeEcnoder.Decode(response, (int)response.BaseStream.Length)
             ?? throw new ShipException("Failed to decode SHIP Handshake response message.");
