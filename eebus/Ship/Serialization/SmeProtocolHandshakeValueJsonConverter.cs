@@ -108,12 +108,14 @@ internal class SmeProtocolHandshakeValueJsonConverter : JsonConverter<SmeProtoco
         writer.WriteStartObject();
         writer.WritePropertyName("version");
         writer.WriteStartArray();
+
         writer.WriteStartObject();
         writer.WriteNumber("major", value.MessageProtocolHandshake.Version.Major);
         writer.WriteEndObject();
         writer.WriteStartObject();
         writer.WriteNumber("minor", value.MessageProtocolHandshake.Version.Minor);
         writer.WriteEndObject();
+
         writer.WriteEndArray();
         writer.WriteEndObject();
 
@@ -124,7 +126,10 @@ internal class SmeProtocolHandshakeValueJsonConverter : JsonConverter<SmeProtoco
         foreach (var format in value.MessageProtocolHandshake.Formats)
         {
             writer.WriteStartObject();
-            writer.WriteString("format", format);
+            writer.WritePropertyName("format");
+            writer.WriteStartArray();
+            writer.WriteStringValue(format);
+            writer.WriteEndArray();
             writer.WriteEndObject();
         }
         writer.WriteEndArray();

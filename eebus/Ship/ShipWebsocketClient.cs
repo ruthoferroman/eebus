@@ -50,10 +50,10 @@ internal class ShipWebSocketClient
             string? ski = certificate.GetSubjectKeyIdentifier();
             if (_ski.ToLower() != ski?.ToLower())
             {
-                _logger.LogInformation("Not trusted {@ski}", ski);
+                _logger.LogError("Not trusted '{@ski}'", ski);
                 return false;
             }
-            _logger.LogInformation("RemoteCertificateValidationCallback {@ski}",ski);
+            _logger.LogInformation("Trusted '{@ski}'",ski);
             // TODO Here you would check the remote device's SKI against your "Trusted" list
             return true; // Simplified for this example
         };
@@ -180,7 +180,7 @@ internal class ShipWebSocketClient
         var locVersion = new MessageProtocolHandshakeTypeVersion(1, 0);
         
         // send handshake message
-        var request = new SmeProtocolHandshakeValue( new MessageProtocolHandshakeType(ProtocolHandshakeTypeType.AnnounceMax, locVersion, [MSG_FORMAT]) );
+        var request = new SmeProtocolHandshakeValue(new MessageProtocolHandshakeType(ProtocolHandshakeTypeType.AnnounceMax, locVersion, [MSG_FORMAT]) );
         await _webSocket.SendMessageAsync(request.Encode, cancellationToken);
         _logger.LogInformation("Handshake Sent {@msg}", request);
 

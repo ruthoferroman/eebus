@@ -29,11 +29,9 @@ internal static class WebsocketExtensions
     public static async Task SendMessageAsync(this WebSocket webSocket, Action<BinaryWriter> encode, CancellationToken cancellationToken)
     {
         using var ms = new MemoryStream();
-        using (var writer = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
-        {
-            encode(writer);
-            ms.Seek(0, SeekOrigin.Begin);
-            await webSocket.SendAsync(ms.ToArray(), WebSocketMessageType.Binary, true, cancellationToken);
-        }
+        using var writer = new BinaryWriter(ms, Encoding.UTF8);
+        encode(writer);
+        ms.Seek(0, SeekOrigin.Begin);
+        await webSocket.SendAsync(ms.ToArray(), WebSocketMessageType.Binary, true, cancellationToken);
     }
 }
