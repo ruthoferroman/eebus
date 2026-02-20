@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="eebus.tests/eebus.tests.csproj" Id="8d52cbf7-6f85-497a-a956-183a3a8a2c14" />
+  <Project Path="eebus/eebus.csproj" />
+</Solution>
