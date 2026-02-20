@@ -1,6 +1,9 @@
 ﻿
+using Makaretu.Dns;
+using System.Net;
 using System.Net.WebSockets;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 
 
 namespace eebus.Ship;
@@ -24,7 +27,7 @@ internal class ShipWebSocketClient
     private readonly ClientWebSocket _webSocket;
     private readonly string _ski;
     private readonly string _uri;
-    
+
     public ShipWebSocketClient(ILogger<ShipWebSocketClient> logger, ClientWebSocket webSocket, string uri, string ski)
     {
         ArgumentNullException.ThrowIfNull(logger);
@@ -80,6 +83,9 @@ internal class ShipWebSocketClient
         var handshakePin = new CancellationTokenSource(_CmiTimeout);
         using var handshakePinCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, handshakeCts.Token);
         await ShipPinPhase(handshakePinCts.Token);
+
+        // optional phase
+        await ConnectionAccessMethodsPhase(cancellationToken);
     }
 
     public async Task DataExchange(CancellationToken cancellationToken)
@@ -91,8 +97,9 @@ internal class ShipWebSocketClient
             var msg = DataValueEncoder.Decode(reader, (int)reader.BaseStream.Length)
                 ?? throw new ShipException("Failed to decode SHIP Data message.");
 
+            var payload = Encoding.UTF8.GetString(msg.Data.First().Payload);
             // TODO
-            _logger.LogInformation("Received message: {@msg}", msg);
+            _logger.LogInformation("Received message: {@payload}", payload);
 
         }
     }
@@ -238,9 +245,24 @@ internal class ShipWebSocketClient
         if (cp.PinState == PinStateType.Required)
             throw new Exception("SHIP Pin input required, but not supported in this implementation.");
 
-        
+
         // OK
+        // try send back - seems to be neccessary at least by vaillant
+        await _webSocket.SendMessageAsync(cp.Encode, cancellationToken);        
     }
 
+    private async Task ConnectionAccessMethodsPhase(CancellationToken cancellationToken)
+    {
+        using var response = await _webSocket.ReceiveMessageAsync(cancellationToken);
+        var handshakeResponse = ControlGroupEncoder.Decode(response, (int)response.BaseStream.Length)
+            ?? throw new ShipException("Failed to decode SHIP PinPhase message.");
+
+        if ( handshakeResponse is not AccessMethodsRequestType ar)
+            throw new ShipException("Unexpected SHIP AccessMethod type.");
+
+        var answer = new AccessMethodsType($"Test_EEBUS_Gateway_{Dns.GetHostName()}", null,null);
+        await _webSocket.SendMessageAsync(answer.Encode,cancellationToken);
+
+    }
 
 }

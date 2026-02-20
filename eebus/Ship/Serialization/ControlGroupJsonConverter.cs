@@ -28,6 +28,11 @@ internal class ControlGroupJsonConverter : JsonConverter<object>
             var converter = new ConnectionPinStateJsonConverter();
             return converter.Read(ref reader, typeof(ConnectionPinStateType), options);
         }
+        else if ( messagetype == "accessMethodsRequest")
+        {
+            var converter = new AccessMethodsRequestJsonConverter();
+            return converter.Read(ref reader, typeof(AccessMethodsRequestType), options);
+        }
         else
         {
             throw new JsonException($"Invalid message type: {messagetype}");

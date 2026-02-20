@@ -25,6 +25,8 @@ var logger = loggerFactory.CreateLogger<Program>();
 var cert = CertGenerator.CreateSelfSignedCertificate(Dns.GetHostName(),"1111");
 string? ski = cert.GetSubjectKeyIdentifier();
 
+
+
 var dsvc = new DeviceDiscoveryService(ski,12480);
 dsvc.Run();
 
