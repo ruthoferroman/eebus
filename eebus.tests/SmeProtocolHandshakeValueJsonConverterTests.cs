@@ -22,7 +22,7 @@ public class SmeProtocolHandshakeValueJsonConverterTests
             new MessageProtocolHandshakeType(
                 ProtocolHandshakeTypeType.AnnounceMax,
                 new MessageProtocolHandshakeTypeVersion(1, 2),
-                ["JSON-UTF8"]
+                new(["JSON-UTF8"])
             )
         );
 
@@ -64,7 +64,7 @@ public class SmeProtocolHandshakeValueJsonConverterTests
         Assert.Equal(ProtocolHandshakeTypeType.AnnounceMax, msg.HandshakeType);
         Assert.Equal((ushort)3, msg.Version.Major);
         Assert.Equal((ushort)4, msg.Version.Minor);
-        Assert.Equal(new[] { "alpha", "beta" }, msg.Formats);
+        Assert.Equal(new(new[] { "alpha", "beta" }), msg.Formats);
     }
 
     [Fact]

@@ -15,15 +15,14 @@ internal class SmeProtocolHandshakeValueJsonConverter : JsonConverter<SmeProtoco
         List<string> formats = new();
 
         // Read start object
-        reader.Read();
+        if (!reader.Read())
+            throw new JsonException("Unexpected end of JSON.");
 
         if (reader.TokenType != JsonTokenType.PropertyName || reader.GetString() != "messageProtocolHandshake")
             throw new JsonException("Expected 'messageProtocolHandshake' property.");
 
-        // Read property name
-        reader.Read();
-
-        if (reader.TokenType != JsonTokenType.StartArray)
+        // Move to the value (should be StartArray)
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
             throw new JsonException("Expected start of array for 'messageProtocolHandshake'.");
 
         // Read array elements
@@ -39,24 +38,36 @@ internal class SmeProtocolHandshakeValueJsonConverter : JsonConverter<SmeProtoco
                     throw new JsonException("Expected property name in 'messageProtocolHandshake' object.");
 
                 string propName = reader.GetString();
-                reader.Read();
+                // Move to property value
+                if (!reader.Read())
+                    throw new JsonException("Unexpected end of JSON while reading property value.");
 
                 switch (propName)
                 {
                     case "handshakeType":
-                        var enumConverter = (JsonConverter<ProtocolHandshakeTypeType>)SmeProtocolHandshakeValueJsonConverter.enumConverter.CreateConverter(typeof(ProtocolHandshakeTypeType), options);
-                        handshakeType = enumConverter.Read(ref reader, typeof(ProtocolHandshakeTypeType), options);
+                        var handshakeConverter = (JsonConverter<ProtocolHandshakeTypeType>)enumConverter.CreateConverter(typeof(ProtocolHandshakeTypeType), options);
+                        handshakeType = handshakeConverter.Read(ref reader, typeof(ProtocolHandshakeTypeType), options);
                         break;
+
                     case "version":
                         if (reader.TokenType != JsonTokenType.StartArray)
                             throw new JsonException("Expected start of array for 'version'.");
-                        // Read major and minor
+
+                        // Read version array elements (objects with major/minor)
                         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
                         {
-                            if (reader.TokenType == JsonTokenType.PropertyName)
+                            if (reader.TokenType != JsonTokenType.StartObject)
+                                throw new JsonException("Expected start of object in 'version' array.");
+
+                            while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
                             {
+                                if (reader.TokenType != JsonTokenType.PropertyName)
+                                    throw new JsonException("Expected property name in 'version' object.");
+
                                 var versionProp = reader.GetString();
-                                reader.Read();
+                                if (!reader.Read())
+                                    throw new JsonException("Unexpected end of JSON in 'version' object.");
+
                                 if (versionProp == "major")
                                     major = reader.GetUInt16();
                                 else if (versionProp == "minor")
@@ -64,29 +75,70 @@ internal class SmeProtocolHandshakeValueJsonConverter : JsonConverter<SmeProtoco
                             }
                         }
                         break;
+
                     case "formats":
                         if (reader.TokenType != JsonTokenType.StartArray)
                             throw new JsonException("Expected start of array for 'formats'.");
+
+                        // Read formats array elements (objects with format -> array of string(s))
                         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
                         {
-                            if (reader.TokenType == JsonTokenType.PropertyName && reader.GetString() == "format")
+                            if (reader.TokenType != JsonTokenType.StartObject)
+                                throw new JsonException("Expected start of object in 'formats' array.");
+
+                            while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
                             {
-                                reader.Read();
-                                formats.Add(reader.GetString());
+                                if (reader.TokenType != JsonTokenType.PropertyName)
+                                    throw new JsonException("Expected property name in 'formats' object.");
+
+                                var fmtProp = reader.GetString();
+
+                                if (!reader.Read())
+                                    throw new JsonException("Unexpected end of JSON in 'formats' object.");
+
+                                if (fmtProp == "format")
+                                {
+                                    if (reader.TokenType != JsonTokenType.StartArray)
+                                        throw new JsonException("Expected start of array for 'format'.");
+
+                                    while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+                                    {
+                                        if (reader.TokenType == JsonTokenType.String)
+                                        {
+                                            formats.Add(reader.GetString());
+                                        }
+                                        else
+                                        {
+                                            // skip unexpected tokens inside format array
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // Unexpected property inside formats object; skip its value by reading through
+                                    // If it's an object/array we need to advance appropriately - simplest: throw
+                                    throw new JsonException($"Unexpected property '{fmtProp}' in formats object.");
+                                }
                             }
                         }
                         break;
+
+                    default:
+                        throw new JsonException($"Unexpected property '{propName}' in messageProtocolHandshake object.");
                 }
             }
         }
 
-        reader.Read(); // EndObject
+        // Move past the EndObject of the root
+        if (!reader.Read() || reader.TokenType != JsonTokenType.EndObject)
+            throw new JsonException("Expected end of root JSON object.");
 
         if (handshakeType == null || major == null || minor == null)
             throw new JsonException("Missing required handshakeType or version fields.");
 
         var version = new MessageProtocolHandshakeTypeVersion(major.Value, minor.Value);
-        var handshake = new MessageProtocolHandshakeType(handshakeType.Value, version, formats.ToArray());
+        var formatsType = new MessageProtocolFormatsType(formats);
+        var handshake = new MessageProtocolHandshakeType(handshakeType.Value, version, formatsType);
         return new SmeProtocolHandshakeValue(handshake);
     }
 
@@ -123,7 +175,7 @@ internal class SmeProtocolHandshakeValueJsonConverter : JsonConverter<SmeProtoco
         writer.WriteStartObject();
         writer.WritePropertyName("formats");
         writer.WriteStartArray();
-        foreach (var format in value.MessageProtocolHandshake.Formats)
+        foreach (var format in value.MessageProtocolHandshake.Formats.Formats)
         {
             writer.WriteStartObject();
             writer.WritePropertyName("format");

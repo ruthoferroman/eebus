@@ -24,7 +24,7 @@ internal class ShipWebSocketClient
     private readonly ClientWebSocket _webSocket;
     private readonly string _ski;
     private readonly string _uri;
-
+    
     public ShipWebSocketClient(ILogger<ShipWebSocketClient> logger, ClientWebSocket webSocket, string uri, string ski)
     {
         ArgumentNullException.ThrowIfNull(logger);
@@ -53,12 +53,12 @@ internal class ShipWebSocketClient
                 _logger.LogError("Not trusted '{@ski}'", ski);
                 return false;
             }
-            _logger.LogInformation("Trusted '{@ski}'",ski);
+            _logger.LogInformation("Trusted '{@ski}'", ski);
             // TODO Here you would check the remote device's SKI against your "Trusted" list
             return true; // Simplified for this example
         };
 
-  
+
         _logger.LogInformation("Connecting ...");
         await _webSocket.ConnectAsync(new Uri(_uri), cancellationToken);
 
@@ -76,6 +76,10 @@ internal class ShipWebSocketClient
         var handshakeCts = new CancellationTokenSource(_CmiTimeout);
         using var linkedHandshakeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, handshakeCts.Token);
         await ShipHandshakePhase(linkedHandshakeCts.Token);
+
+        var handshakePin = new CancellationTokenSource(_CmiTimeout);
+        using var handshakePinCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, handshakeCts.Token);
+        await ShipPinPhase(handshakePinCts.Token);
     }
 
     public async Task DataExchange(CancellationToken cancellationToken)
@@ -83,7 +87,7 @@ internal class ShipWebSocketClient
         _logger.LogInformation("Starting Data Exchange ...");
         while (_webSocket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
         {
-            using var reader = await _webSocket.ReceiveMessageAsync(cancellationToken);
+            using var reader = await _webSocket.ReceiveMessageAsync(CancellationToken.None);
             var msg = DataValueEncoder.Decode(reader, (int)reader.BaseStream.Length)
                 ?? throw new ShipException("Failed to decode SHIP Data message.");
 
@@ -147,7 +151,7 @@ internal class ShipWebSocketClient
                         // TODO Token
                         //cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
                         var prHelloMsg = new SmeHelloValue(
-                           
+
                                new ConnectionHelloType(ConnectionHelloPhaseType.Pending, helloResponse.Waiting, null, null)
                            );
                         await _webSocket.SendMessageAsync(prHelloMsg.Encode, cancellationToken);
@@ -175,18 +179,18 @@ internal class ShipWebSocketClient
         await _webSocket.SendMessageAsync(abortMsg.Encode, cancellationToken);
     }
 
+
     private async Task ShipHandshakePhase(CancellationToken cancellationToken)
     {
         var locVersion = new MessageProtocolHandshakeTypeVersion(1, 0);
-        
+
         // send handshake message
-        var request = new SmeProtocolHandshakeValue(new MessageProtocolHandshakeType(ProtocolHandshakeTypeType.AnnounceMax, locVersion, [MSG_FORMAT]) );
+        var request = new SmeProtocolHandshakeValue(new MessageProtocolHandshakeType(ProtocolHandshakeTypeType.AnnounceMax, locVersion, new([MSG_FORMAT])));
         await _webSocket.SendMessageAsync(request.Encode, cancellationToken);
         _logger.LogInformation("Handshake Sent {@msg}", request);
 
         // receive handshake response
         using var response = await _webSocket.ReceiveMessageAsync(cancellationToken);
-        // TODO Check for error message response
         var handshakeResponse = SmeProtocolHandshakeEcnoder.Decode(response, (int)response.BaseStream.Length)
             ?? throw new ShipException("Failed to decode SHIP Handshake response message.");
 
@@ -198,7 +202,7 @@ internal class ShipWebSocketClient
             // TODO - send Handshake error response if validation fails
             var first = hv.MessageProtocolHandshake//.FirstOrDefault()
                     ?? throw new ShipException("SHIP Handshake response doesn't contain elements.");
-            if (first.HandshakeType == ProtocolHandshakeTypeType.Select)
+            if (first.HandshakeType != ProtocolHandshakeTypeType.Select)
                 throw new ShipException("SHIP Handshake response Protocol version selection expected!");
 
             var firstVersion = first.Version
@@ -207,14 +211,36 @@ internal class ShipWebSocketClient
             if (firstVersion != locVersion)
                 throw new ShipException($"SHIP Handshake response Protocol version mismatch! Expected: {locVersion}, Received: {firstVersion}");
 
-            if (!first.Formats.Any(v => v == MSG_FORMAT))
+            if (!first.Formats.Formats.Any(v => v == MSG_FORMAT))
                 throw new ShipException($"SHIP Handshake response doesn't contain supported protocol format {MSG_FORMAT}");
+
+            // confirm handshake
+            await _webSocket.SendMessageAsync(hv.Encode, cancellationToken);
         }
         else
             throw new ShipException("Unexpected SHIP Handshake response message type.");
+
+        // test
+
     }
 
+    private async Task ShipPinPhase(CancellationToken cancellationToken)
+    {
+        using var response1 = await _webSocket.ReceiveMessageAsync(cancellationToken);
+        var handshakeResponse1 = ControlGroupEncoder.Decode(response1, (int)response1.BaseStream.Length)
+            ?? throw new ShipException("Failed to decode SHIP PinPhase message.");
+
+        _logger.LogInformation("Pin message received {@msg}", handshakeResponse1);
+
+        if (handshakeResponse1 is not ConnectionPinStateType cp)
+            throw new ShipException("Unexpected SHIP Pin message type.");
+
+        if (cp.PinState == PinStateType.Required)
+            throw new Exception("SHIP Pin input required, but not supported in this implementation.");
+
+        
+        // OK
+    }
+
+
 }
-
-
-

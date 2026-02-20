@@ -1,6 +1,6 @@
 ﻿namespace eebus.Ship.Serialization;
 
-internal class SmeProtocolHandshakeJsonConverter : JsonConverter<object>
+internal class ControlGroupJsonConverter : JsonConverter<object>
 {
     public override object Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
@@ -22,6 +22,11 @@ internal class SmeProtocolHandshakeJsonConverter : JsonConverter<object>
         {
             var converter = new SmeProtocolHandshakeErrorValueJsonConverter();
             return converter.Read(ref reader, typeof(SmeProtocolHandshakeErrorValue), options);
+        }
+        else if (messagetype == "connectionPinState")
+        {
+            var converter = new ConnectionPinStateJsonConverter();
+            return converter.Read(ref reader, typeof(ConnectionPinStateType), options);
         }
         else
         {

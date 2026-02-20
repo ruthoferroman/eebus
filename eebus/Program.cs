@@ -22,7 +22,7 @@ var loggerFactory = LoggerFactory.Create(builder =>
 
 var logger = loggerFactory.CreateLogger<Program>();
 
-var cert = CertGenerator.CreateSelfSignedCertificate(Dns.GetHostName());
+var cert = CertGenerator.CreateSelfSignedCertificate(Dns.GetHostName(),"1111");
 string? ski = cert.GetSubjectKeyIdentifier();
 
 var dsvc = new DeviceDiscoveryService(ski,12480);
@@ -32,6 +32,7 @@ var tmp = new DeviceDiscovery(loggerFactory.CreateLogger<DeviceDiscovery>());
 var devices = await tmp.DiscoverAsync().ToListAsync();
 foreach (var dev in devices)
     logger.LogInformation("device found: {Device}", dev);
+
 
 
 while (true)

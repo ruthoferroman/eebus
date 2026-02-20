@@ -1,6 +1,6 @@
 ﻿namespace eebus.Ship.Serialization;
 
-internal static class SmeProtocolHandshakeEcnoder
+internal static class ControlGroupEncoder
 {
     private static readonly JsonSerializerOptions serializerOptions = new(JsonSerializerDefaults.Web)
     {

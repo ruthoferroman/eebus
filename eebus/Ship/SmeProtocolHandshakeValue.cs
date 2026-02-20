@@ -14,7 +14,11 @@ internal enum ProtocolHandshakeTypeType
 
 internal record MessageProtocolHandshakeType([property: JsonPropertyName("handshakeType")] ProtocolHandshakeTypeType HandshakeType,
     [property: JsonPropertyName("version")] MessageProtocolHandshakeTypeVersion Version,
-    [property: JsonPropertyName("formats")] string[] Formats);
+    [property: JsonPropertyName("formats")] MessageProtocolFormatsType Formats);
+
+public record MessageProtocolFormatsType(
+    [property: JsonPropertyName("format")] IReadOnlyList<string> Formats
+);
 
 internal record MessageProtocolHandshakeTypeVersion([property: JsonPropertyName("major")] ushort Major, [property: JsonPropertyName("minor")] ushort Minor);
 
