@@ -1,5 +1,4 @@
-﻿using eebus.Extensions;
-using Microsoft.Extensions.Logging;
+﻿
 using System.Net.WebSockets;
 using System.Security.Cryptography.X509Certificates;
 
@@ -15,6 +14,7 @@ namespace eebus.Ship;
 /// <param name="webSocket"></param>
 internal class ShipWebSocketClient
 {
+    const string MSG_FORMAT = "JSON-UTF8";
     // maximum allowed are 30 seconds, according to spec
     private static readonly TimeSpan _CmiTimeout = TimeSpan.FromSeconds(30);
     // maximum alowed are 240 seconds, according to the spec
@@ -66,7 +66,7 @@ internal class ShipWebSocketClient
         // 3. version, format... handshake
         var handshakeCts = new CancellationTokenSource(_CmiTimeout);
         using var linkedHandshakeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, handshakeCts.Token);
-        await ShipHsPhase(linkedHandshakeCts.Token);
+        await ShipHandshakePhase(linkedHandshakeCts.Token);
     }
 
     public async Task DataExchange(CancellationToken cancellationToken)
@@ -166,40 +166,43 @@ internal class ShipWebSocketClient
         await webSocket.SendMessageAsync(abortMsg.Encode, cancellationToken);
     }
 
-    private async Task ShipHsPhase(CancellationToken cancellationToken)
+    private async Task ShipHandshakePhase(CancellationToken cancellationToken)
     {
-        var msgFormat = "JSON-UTF8";
         var locVersion = new MessageProtocolHandshakeTypeVersion(1, 0);
         
         // send handshake message
-        var handShakeMessage = new SmeProtocolHandshakeValue(
-            
-                new MessageProtocolHandshakeType(ProtocolHandshakeTypeType.AnnounceMax, locVersion, [msgFormat])
-            );
-        await webSocket.SendMessageAsync(handShakeMessage.Encode, cancellationToken);
-        logger.LogInformation("Handshake Sent {@msg}", handShakeMessage);
+        var request = new SmeProtocolHandshakeValue( new MessageProtocolHandshakeType(ProtocolHandshakeTypeType.AnnounceMax, locVersion, [MSG_FORMAT]) );
+        await webSocket.SendMessageAsync(request.Encode, cancellationToken);
+        logger.LogInformation("Handshake Sent {@msg}", request);
 
         // receive handshake response
-        using var handshakeResponseMsg = await webSocket.ReceiveMessageAsync(cancellationToken);
+        using var response = await webSocket.ReceiveMessageAsync(cancellationToken);
         // TODO Check for error message response
-        var handshakeResponse = SmeProtocolHandshakeValueEncoder.Decode(handshakeResponseMsg, (int)handshakeResponseMsg.BaseStream.Length)
+        var handshakeResponse = SmeProtocolHandshakeEcnoder.Decode(response, (int)response.BaseStream.Length)
             ?? throw new ShipException("Failed to decode SHIP Handshake response message.");
 
-        // validate response
-        // TODO - send Handshake error response if validation fails
-        var first = handshakeResponse.MessageProtocolHandshake//.FirstOrDefault()
-                ?? throw new ShipException("SHIP Handshake response doesn't contain elements.");
-        if (first.HandshakeType == ProtocolHandshakeTypeType.Select)
-                 throw new ShipException("SHIP Handshake response Protocol version selection expected!");
+        if (handshakeResponse is SmeProtocolHandshakeErrorValue ev)
+            throw new ShipException($"SHIP Handshake error response received {ev.MessageProtocolHandshakeError.Error}");
+        else if (handshakeResponse is SmeProtocolHandshakeValue hv)
+        {
+            // validate response
+            // TODO - send Handshake error response if validation fails
+            var first = hv.MessageProtocolHandshake//.FirstOrDefault()
+                    ?? throw new ShipException("SHIP Handshake response doesn't contain elements.");
+            if (first.HandshakeType == ProtocolHandshakeTypeType.Select)
+                throw new ShipException("SHIP Handshake response Protocol version selection expected!");
 
-        var firstVersion = first.Version
-            ?? throw new ShipException("SHIP Handshake response doesn't contain protocol versions.");
+            var firstVersion = first.Version
+                ?? throw new ShipException("SHIP Handshake response doesn't contain protocol versions.");
 
-        if (firstVersion != locVersion)
-            throw new ShipException($"SHIP Handshake response Protocol version mismatch! Expected: {locVersion}, Received: {firstVersion}");
+            if (firstVersion != locVersion)
+                throw new ShipException($"SHIP Handshake response Protocol version mismatch! Expected: {locVersion}, Received: {firstVersion}");
 
-        if ( !first.Formats.Any(v => v == msgFormat))
-           throw new ShipException($"SHIP Handshake response doesn't contain supported protocol format {msgFormat}");
+            if (!first.Formats.Any(v => v == MSG_FORMAT))
+                throw new ShipException($"SHIP Handshake response doesn't contain supported protocol format {MSG_FORMAT}");
+        }
+        else
+            throw new ShipException("Unexpected SHIP Handshake response message type.");
     }
 
 }

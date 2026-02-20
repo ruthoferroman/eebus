@@ -2,10 +2,17 @@
 
 internal static class SmeProtocolHandshakeErrorValueEncoder
 {
+    private static readonly JsonSerializerOptions serializerOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters =
+        {   new SmeProtocolHandshakeErrorValueJsonConverter()
+        }
+    };
     public static void Encode(this SmeProtocolHandshakeErrorValue msg, BinaryWriter binaryWriter)
     {
         binaryWriter.Write((byte)ShipMessageType.Control);
-        string json = JsonSerializer.Serialize(msg);
+        string json = JsonSerializer.Serialize(msg, serializerOptions);
         binaryWriter.Write(Encoding.UTF8.GetBytes(json));
     }
 
@@ -16,6 +23,6 @@ internal static class SmeProtocolHandshakeErrorValueEncoder
             throw new InvalidDataException($"Expected Control message type, but got {ctrl}");
         var json = Encoding.UTF8.GetString(binaryReader.ReadBytes(msgLength - 1));
 
-        return JsonSerializer.Deserialize<SmeProtocolHandshakeErrorValue>(json);
+        return JsonSerializer.Deserialize<SmeProtocolHandshakeErrorValue>(json, serializerOptions);
     }
 }

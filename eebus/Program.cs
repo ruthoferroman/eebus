@@ -1,7 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using eebus;
 using eebus.Ship;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
