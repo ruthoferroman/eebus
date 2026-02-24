@@ -1,5 +1,4 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using FunctionType = System.String;
 
 namespace eebus.Spine;
 
@@ -8,8 +7,8 @@ namespace eebus.Spine;
 /// ElementTagType in the schema can be arbitrary; keep flexible with JsonElement.
 /// </summary>
 internal record CmdControlType(
-    [property: JsonPropertyName("delete")] JsonElement? Delete = null,
-    [property: JsonPropertyName("partial")] JsonElement? Partial = null);
+    [property: JsonPropertyName("delete")] ElementTagType? Delete = null,
+    [property: JsonPropertyName("partial")] ElementTagType? Partial = null);
 
 /// <summary>
 /// Filter type: optional filterId, optional cmdControl and optional selector/element groups.
@@ -33,7 +32,7 @@ internal record FilterType(
 /// so that arbitrary command/frame content can be preserved and inspected at runtime.
 /// </summary>
 internal record CmdType(
-    [property: JsonPropertyName("function")] JsonElement? Function = null,
+    [property: JsonPropertyName("function")] string? Function = null,
     [property: JsonPropertyName("filter")] FilterType[]? Filter = null,
     [property: JsonPropertyName("manufacturerSpecificExtension")] byte[]? ManufacturerSpecificExtension = null,
     [property: JsonPropertyName("lastUpdateAt")] JsonElement? LastUpdateAt = null,

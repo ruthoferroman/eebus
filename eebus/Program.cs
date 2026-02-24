@@ -1,6 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using eebus;
 using eebus.Ship;
+using eebus.Spine;
 using Microsoft.Extensions.Logging.Console;
 using System.Net;
 
@@ -43,9 +44,10 @@ while (true)
     {
         var websocket = new System.Net.WebSockets.ClientWebSocket();
 
-        ShipWebSocketClient client = new(loggerFactory.CreateLogger<ShipWebSocketClient>(), websocket, "wss://192.168.1.152:12480", "1aa91a8f21869234ad5860f4fddadd4267fa4a0e");
+        ShipWebsocketClient client = new(loggerFactory.CreateLogger<ShipWebsocketClient>(), websocket, "wss://192.168.1.152:12480", "1aa91a8f21869234ad5860f4fddadd4267fa4a0e");
         await client.ConnectAsync(cert, CancellationToken.None);
-        await client.DataExchange(CancellationToken.None);
+        SpineWebsocketClient spineclient = new(loggerFactory.CreateLogger<SpineWebsocketClient>(), websocket, "wss://192.168.1.152:12480");
+       await spineclient.DataExchange(CancellationToken.None);
     }
     catch (Exception ex)
     {

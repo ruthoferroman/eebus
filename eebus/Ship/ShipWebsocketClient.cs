@@ -16,7 +16,7 @@ namespace eebus.Ship;
 /// </summary>
 /// <param name="logger"></param>
 /// <param name="webSocket"></param>
-internal class ShipWebSocketClient
+internal class ShipWebsocketClient
 {
     const string MSG_FORMAT = "JSON-UTF8";
     // maximum allowed are 30 seconds, according to spec
@@ -24,12 +24,12 @@ internal class ShipWebSocketClient
     // maximum alowed are 240 seconds, according to the spec
     private static readonly TimeSpan _HelloTimeout = TimeSpan.FromSeconds(240);
 
-    private readonly ILogger<ShipWebSocketClient> _logger;
+    private readonly ILogger<ShipWebsocketClient> _logger;
     private readonly ClientWebSocket _webSocket;
     private readonly string _ski;
     private readonly string _uri;
 
-    public ShipWebSocketClient(ILogger<ShipWebSocketClient> logger, ClientWebSocket webSocket, string uri, string ski)
+    public ShipWebsocketClient(ILogger<ShipWebsocketClient> logger, ClientWebSocket webSocket, string uri, string ski)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(webSocket);
@@ -89,34 +89,6 @@ internal class ShipWebSocketClient
         await ConnectionAccessMethodsPhase(cancellationToken);
     }
 
-    public async Task DataExchange(CancellationToken cancellationToken)
-    {
-        var serializerOptions = new JsonSerializerOptions
-        {
-            Converters =
-            {
-                new DatagramJsonConverter()
-            }
-        };
-        var converter = new DatagramJsonConverter();
-        _logger.LogInformation("Starting Data Exchange ...");
-        while (_webSocket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
-        {
-            using var reader = await _webSocket.ReceiveMessageAsync(CancellationToken.None);
-            var msg = DataValueEncoder.Decode(reader, (int)reader.BaseStream.Length)
-                ?? throw new ShipException("Failed to decode SHIP Data message.");
-
-            foreach (var data in msg.Data)
-            {
-                var payload = Encoding.UTF8.GetString(data.Payload);
-                var datagram = JsonSerializer.Deserialize<DatagramType>(payload, serializerOptions);
-                _logger.LogInformation("Received message: {@payload}", payload);
-            }
-            // TODO
-       
-
-        }
-    }
 
     private async Task ShipInitPhase(CancellationToken cancellationToken)
     {
