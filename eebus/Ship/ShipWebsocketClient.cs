@@ -1,4 +1,5 @@
 ﻿
+using eebus.Spine;
 using Makaretu.Dns;
 using System.Net;
 using System.Net.WebSockets;
@@ -90,6 +91,14 @@ internal class ShipWebSocketClient
 
     public async Task DataExchange(CancellationToken cancellationToken)
     {
+        var serializerOptions = new JsonSerializerOptions
+        {
+            Converters =
+            {
+                new DatagramJsonConverter()
+            }
+        };
+        var converter = new DatagramJsonConverter();
         _logger.LogInformation("Starting Data Exchange ...");
         while (_webSocket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
         {
@@ -97,9 +106,14 @@ internal class ShipWebSocketClient
             var msg = DataValueEncoder.Decode(reader, (int)reader.BaseStream.Length)
                 ?? throw new ShipException("Failed to decode SHIP Data message.");
 
-            var payload = Encoding.UTF8.GetString(msg.Data.First().Payload);
+            foreach (var data in msg.Data)
+            {
+                var payload = Encoding.UTF8.GetString(data.Payload);
+                var datagram = JsonSerializer.Deserialize<DatagramType>(payload, serializerOptions);
+                _logger.LogInformation("Received message: {@payload}", payload);
+            }
             // TODO
-            _logger.LogInformation("Received message: {@payload}", payload);
+       
 
         }
     }
