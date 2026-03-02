@@ -1,4 +1,4 @@
-csharp eebus\Spine\NodeManagementTypes.cs
+/*csharp eebus\Spine\NodeManagementTypes.cs
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -202,4 +202,4 @@ internal record NodeManagementUseCaseDataElementsType(
 
 internal record NodeManagementUseCaseDataSelectorsType(
     [property: JsonPropertyName("useCaseInformation")] JsonElement? UseCaseInformation = null
-);
+);*/

@@ -1,4 +1,4 @@
-namespace eebus.Spine;
+/*namespace eebus.Spine;
 
 // Simple type aliases
 using LabelType = System.String;
@@ -190,4 +190,4 @@ internal record FunctionPropertyType(
 internal record FunctionPropertyElementsType(
     [property: JsonPropertyName("function")] ElementTagType? Function = null,
     [property: JsonPropertyName("possibleOperations")] ElementTagType? PossibleOperations = null
-);
+);*/

@@ -1,4 +1,4 @@
-using FunctionType = System.String;
+/*using FunctionType = System.String;
 
 namespace eebus.Spine;
 
@@ -37,4 +37,4 @@ internal record CmdType(
     [property: JsonPropertyName("manufacturerSpecificExtension")] byte[]? ManufacturerSpecificExtension = null,
     [property: JsonPropertyName("lastUpdateAt")] JsonElement? LastUpdateAt = null,
     // Additional arbitrary data selectors / elements that may appear inline with the command
-    [property: JsonPropertyName("data")] JsonElement[]? Data = null);
+    [property: JsonPropertyName("data")] JsonElement[]? Data = null);*/

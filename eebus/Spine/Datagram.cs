@@ -1,4 +1,4 @@
-namespace eebus.Spine;
+/*namespace eebus.Spine;
 
 /// <summary>
 /// SPINE feature address (partial, adapted from observed JSON).
@@ -39,4 +39,4 @@ internal record PayloadType(
 internal record DatagramType(
     [property: JsonPropertyName("header")] HeaderType Header,
     [property: JsonPropertyName("payload")] PayloadType Payload
-);
+);*/
