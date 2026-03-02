@@ -83,6 +83,51 @@ public record NodeManagementDetailedDiscoveryDataType(
     List<NodeManagementDetailedDiscoveryFeatureInformationType>? FeatureInformation
 );
 
+// NodeManagementBindingDataType
+public record NodeManagementBindingDataType(
+    List<BindingManagementEntryDataType>? BindingEntry
+);
+
+// NodeManagementBindingRequestCallType
+public record NodeManagementBindingRequestCallType(
+    BindingManagementRequestCallType? BindingRequest
+);
+
+// NodeManagementBindingDeleteCallType
+public record NodeManagementBindingDeleteCallType(
+    BindingManagementDeleteCallType? BindingDelete
+);
+
+// NodeManagementSubscriptionDataType
+public record NodeManagementSubscriptionDataType(
+    List<SubscriptionManagementEntryDataType>? SubscriptionEntry
+);
+
+// NodeManagementSubscriptionRequestCallType
+public record NodeManagementSubscriptionRequestCallType(
+    SubscriptionManagementRequestCallType? SubscriptionRequest
+);
+
+// NodeManagementSubscriptionDeleteCallType
+public record NodeManagementSubscriptionDeleteCallType(
+    SubscriptionManagementDeleteCallType? SubscriptionDelete
+);
+
+// NodeManagementDestinationDataType
+public record NodeManagementDestinationDataType(
+    NetworkManagementDeviceDescriptionDataType? DeviceDescription
+);
+
+// NodeManagementDestinationListDataType
+public record NodeManagementDestinationListDataType(
+    List<NodeManagementDestinationDataType>? NodeManagementDestinationData
+);
+
+// NodeManagementUseCaseDataType
+public record NodeManagementUseCaseDataType(
+    List<UseCaseInformationDataType>? UseCaseInformation
+);
+
 // ...additional records for ElementsType, SelectorsType, BindingDataType, SubscriptionDataType, DestinationDataType, UseCaseDataType, etc. would follow the same pattern, mapping each XSD type to a C# record with nullable properties and appropriate collections.
 // For brevity, only the main types are shown here. Extend as needed for full coverage.
 // </auto-generated>
