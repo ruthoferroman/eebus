@@ -1,31 +1,28 @@
-﻿using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿namespace eebus.Ship;
 
-namespace eebus.Ship;
-
-internal record DataValue([property: JsonPropertyName("data")] DataType[] Data);
-internal record DataType([property: JsonPropertyName("header")] HeaderType[] Header, [property: JsonPropertyName("payload")] byte[] Payload, [property: JsonPropertyName("extension")] ExtensionType[]? extension);
-
+/// <summary>
+/// Header contains the protocol identifier.
+/// </summary>
 internal record HeaderType([property: JsonPropertyName("protocolId")] string ProtocolId);
-internal record ExtensionType([property: JsonPropertyName("extensionId")] string? ExtensionId, [property: JsonPropertyName("binary")] byte[]? Binary, [property: JsonPropertyName("string")] string? String);
 
-internal static class DataValueEncoder
-{
-    public static void Encode(this DataValue connectionHello, BinaryWriter binaryWriter)
-    {
-        binaryWriter.Write((byte)ShipMessageType.Data);
-        string json = JsonSerializer.Serialize(connectionHello);
-        binaryWriter.Write(Encoding.UTF8.GetBytes(json));
-    }
+/// <summary>
+/// Optional extension element. 'binary' is hexBinary in XSD — map to byte[].
+/// </summary>
+internal record ExtensionType(
+    [property: JsonPropertyName("extensionId")] string? ExtensionId = null,
+    [property: JsonPropertyName("binary")] byte[]? Binary = null,
+    [property: JsonPropertyName("string")] string? String = null);
 
-    public static DataValue? Decode(BinaryReader binaryReader, int msgLength)
-    {
-        var ctrl = binaryReader.ReadByte();
-        if (ctrl != (byte)ShipMessageType.Data)
-            throw new InvalidDataException($"Expected Control message type, but got {ctrl}");
-        var json = Encoding.UTF8.GetString(binaryReader.ReadBytes(msgLength - 1));
+/// <summary>
+/// Data element: header, payload (treated as bytes) and optional extension.
+/// Matches XSD: header, payload (xs:anyType -> byte[] for binary payload), extension.
+/// </summary>
+internal record DataType(
+    [property: JsonPropertyName("header")] HeaderType[] Header,
+    [property: JsonPropertyName("payload")] byte[] Payload,
+    [property: JsonPropertyName("extension")] ExtensionType? Extension = null);
 
-        return JsonSerializer.Deserialize<DataValue>(json);
-    }
-}
+/// <summary>
+/// Root container for data messages.
+/// </summary>
+internal record DataValue([property: JsonPropertyName("data")] DataType[] Data);

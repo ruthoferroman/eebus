@@ -1,5 +1,6 @@
 using System.Text.Json;
 using eebus.Ship;
+using eebus.Ship.Serialization;
 using Xunit;
 
 public class SmeHelloValueJsonConverterTests
